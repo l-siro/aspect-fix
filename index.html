@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>アスペクト比統一ツール</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2em; }
+    #drop-zone {
+      border: 2px dashed #999;
+      border-radius: 10px;
+      padding: 2em;
+      margin-bottom: 1em;
+      background: #f9f9f9;
+    }
+    canvas { display: none; }
+    .output { margin-top: 1em; }
+    #download-zip { margin-top: 1em; display: none; }
+  </style>
+</head>
+<body>
+  <h1>画像アスペクト比統一ツール</h1>
+  <div id="drop-zone">ここに画像ファイルをドロップ</div>
+  <label for="aspect">アスペクト比：</label>
+  <select id="aspect">
+    <option value="3:2" selected>3:2（横長）</option>
+    <option value="1:1">1:1（正方形）</option>
+    <option value="4:3">4:3</option>
+    <option value="16:9">16:9</option>
+    <option value="2:3">2:3（縦長）</option>
+  </select>
+
+  <!-- ✅ 背景色切り替えチェックボックス -->
+  <label style="margin-left: 1em;">
+    <input type="checkbox" id="bgColorToggle"> 背景を白にする
+  </label>
+
+  <div class="output" id="output"></div>
+  <button id="download-zip">ZIPで一括ダウンロード</button>
+  <canvas id="canvas"></canvas>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"></script>
+  <script>
+    const dropZone = document.getElementById('drop-zone');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const output = document.getElementById('output');
+    const aspectSelect = document.getElementById('aspect');
+    const zipButton = document.getElementById('download-zip');
+    const bgColorToggle = document.getElementById('bgColorToggle'); // ✅ 追加
+
+    const zip = new JSZip();
+    let imageCount = 0;
+
+    function parseAspect(value) {
+      const [w, h] = value.split(':').map(Number);
+      return w / h;
+    }
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.style.background = '#e0f7ff';
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.style.background = '#f9f9f9';
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.style.background = '#f9f9f9';
+      const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+      const aspect = parseAspect(aspectSelect.value);
+      imageCount = files.length;
+      output.innerHTML = '';
+      zip.remove("images");
+      const imageFolder = zip.folder("images");
+
+      files.forEach(file => processImage(file, aspect, imageFolder));
+    });
+
+    function processImage(file, targetAspect, imageFolder) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const iw = img.width;
+          const ih = img.height;
+          const originalAspect = iw / ih;
+
+          let newWidth = iw;
+          let newHeight = ih;
+
+          if (originalAspect > targetAspect) {
+            newHeight = iw / targetAspect;
+          } else {
+            newWidth = ih * targetAspect;
+          }
+
+          canvas.width = newWidth;
+          canvas.height = newHeight;
+
+          // ✅ 背景色チェックで色を切替
+          const useBgColor = bgColorToggle.checked;
+          ctx.clearRect(0, 0, newWidth, newHeight);
+          ctx.fillStyle = useBgColor ? '#ffffff' : 'rgba(0,0,0,0)';
+          ctx.fillRect(0, 0, newWidth, newHeight);
+
+          const dx = (newWidth - iw) / 2;
+          const dy = (newHeight - ih) / 2;
+          ctx.drawImage(img, dx, dy);
+
+          canvas.toBlob((blob) => {
+            const fileName = file.name.replace(/\.[^/.]+$/, '') + '_resized.png';
+            imageFolder.file(fileName, blob);
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = fileName;
+            a.textContent = 'ダウンロード: ' + fileName;
+            a.style.display = 'block';
+            output.appendChild(a);
+
+            imageCount--;
+            if (imageCount === 0) {
+              zipButton.style.display = 'inline-block';
+            }
+          }, 'image/png');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    zipButton.addEventListener('click', () => {
+      zip.generateAsync({ type: 'blob' }).then(content => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(content);
+        a.download = 'resized_images.zip';
+        a.click();
+      });
+    });
+  </script>
+</body>
+</html>
