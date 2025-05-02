@@ -31,7 +31,7 @@
 
   <!-- ✅ 背景色切り替えチェックボックス -->
   <label style="margin-left: 1em;">
-    <input type="checkbox" id="bgColorToggle"> 背景を白にする
+    <input type="checkbox" id="bgColorToggle"> 黒背景
   </label>
 
   <div class="output" id="output"></div>
@@ -102,7 +102,7 @@
           // ✅ 背景色チェックで色を切替
           const useBgColor = bgColorToggle.checked;
           ctx.clearRect(0, 0, newWidth, newHeight);
-          ctx.fillStyle = useBgColor ? '#ffffff' : 'rgba(0,0,0,0)';
+          ctx.fillStyle = useBgColor ? '#111' : 'rgba(0,0,0,0)';
           ctx.fillRect(0, 0, newWidth, newHeight);
 
           const dx = (newWidth - iw) / 2;
